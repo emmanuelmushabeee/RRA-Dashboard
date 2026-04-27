@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Live Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg:        #0d1117;
+      --surface:   #161b22;
+      --border:    #30363d;
+      --accent:    #58a6ff;
+      --accent2:   #3fb950;
+      --accent3:   #f78166;
+      --accent4:   #d2a8ff;
+      --text:      #e6edf3;
+      --muted:     #8b949e;
+      --header-h:  64px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+      min-height: 100vh;
+    }
+
+    /* ── HEADER ── */
+    header {
+      position: sticky; top: 0; z-index: 100;
+      height: var(--header-h);
+      background: rgba(13,17,23,.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 32px;
+    }
+
+    .logo {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 1.2rem; font-weight: 800; letter-spacing: -0.5px;
+    }
+    .logo svg { color: var(--accent); }
+
+    .status-pill {
+      display: flex; align-items: center; gap: 8px;
+      background: rgba(88,166,255,.1);
+      border: 1px solid rgba(88,166,255,.3);
+      border-radius: 20px; padding: 6px 14px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .75rem; color: var(--accent);
+    }
+    .pulse {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--accent2);
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%,100% { opacity: 1; box-shadow: 0 0 0 0 rgba(63,185,80,.5); }
+      50%      { opacity: .7; box-shadow: 0 0 0 6px rgba(63,185,80,0); }
+    }
+
+    .header-right { display: flex; align-items: center; gap: 12px; }
+
+    button.refresh-btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text); border-radius: 8px;
+      padding: 8px 16px; cursor: pointer;
+      font-family: 'Syne', sans-serif; font-size: .85rem; font-weight: 600;
+      display: flex; align-items: center; gap: 6px;
+      transition: border-color .2s, background .2s;
+    }
+    button.refresh-btn:hover { border-color: var(--accent); background: rgba(88,166,255,.08); }
+    button.refresh-btn svg { transition: transform .6s; }
+    button.refresh-btn.spinning svg { transform: rotate(360deg); }
+
+    /* ── MAIN LAYOUT ── */
+    main { padding: 32px; max-width: 1400px; margin: 0 auto; }
+
+    /* ── STATS ROW ── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px; margin-bottom: 32px;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px; padding: 20px 24px;
+      position: relative; overflow: hidden;
+      animation: fadeUp .4s ease both;
+    }
+    .stat-card::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    }
+    .stat-card.c1::before { background: var(--accent); }
+    .stat-card.c2::before { background: var(--accent2); }
+    .stat-card.c3::before { background: var(--accent3); }
+    .stat-card.c4::before { background: var(--accent4); }
+
+    .stat-label { font-size: .7rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); margin-bottom: 8px; }
+    .stat-value { font-size: 2rem; font-weight: 800; line-height: 1; }
+    .stat-sub   { font-size: .75rem; color: var(--muted); margin-top: 4px; font-family: 'JetBrains Mono', monospace; }
+
+    /* ── TOOLBAR ── */
+    .toolbar {
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 12px; margin-bottom: 20px;
+    }
+    .toolbar-left { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+    input.search {
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text); border-radius: 8px; padding: 8px 14px;
+      font-family: 'JetBrains Mono', monospace; font-size: .85rem; width: 240px;
+      outline: none; transition: border-color .2s;
+    }
+    input.search:focus { border-color: var(--accent); }
+    input.search::placeholder { color: var(--muted); }
+
+    select.col-select {
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text); border-radius: 8px; padding: 8px 14px;
+      font-family: 'Syne', sans-serif; font-size: .85rem; font-weight: 600;
+      outline: none; cursor: pointer;
+    }
+
+    .row-count {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .8rem; color: var(--muted);
+    }
+
+    /* ── TABLE ── */
+    .table-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px; overflow: hidden;
+      animation: fadeUp .5s ease both;
+    }
+    .table-scroll { overflow-x: auto; }
+
+    table { width: 100%; border-collapse: collapse; font-size: .875rem; }
+
+    thead tr { background: rgba(88,166,255,.06); border-bottom: 1px solid var(--border); }
+    thead th {
+      padding: 14px 20px; text-align: left;
+      font-weight: 700; font-size: .7rem; text-transform: uppercase;
+      letter-spacing: 1.2px; color: var(--muted); white-space: nowrap;
+      cursor: pointer; user-select: none; position: relative;
+      transition: color .2s;
+    }
+    thead th:hover { color: var(--accent); }
+    thead th .sort-icon { margin-left: 4px; opacity: .4; font-style: normal; }
+    thead th.asc  .sort-icon, thead th.desc .sort-icon { opacity: 1; color: var(--accent); }
+
+    tbody tr {
+      border-bottom: 1px solid rgba(48,54,61,.6);
+      transition: background .15s;
+      animation: fadeUp .3s ease both;
+    }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: rgba(88,166,255,.04); }
+
+    td { padding: 13px 20px; color: var(--text); white-space: nowrap; max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
+    td.mono { font-family: 'JetBrains Mono', monospace; font-size: .8rem; }
+
+    /* coloured badges for short values */
+    .badge {
+      display: inline-block; padding: 2px 10px; border-radius: 20px;
+      font-size: .72rem; font-weight: 700; letter-spacing: .5px;
+    }
+    .badge-blue   { background: rgba(88,166,255,.15); color: var(--accent); }
+    .badge-green  { background: rgba(63,185,80,.15);  color: var(--accent2); }
+    .badge-red    { background: rgba(247,129,102,.15); color: var(--accent3); }
+    .badge-purple { background: rgba(210,168,255,.15); color: var(--accent4); }
+
+    /* ── EMPTY / LOADING ── */
+    .center-msg {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 14px; padding: 80px 20px;
+      color: var(--muted); font-family: 'JetBrains Mono', monospace;
+    }
+    .spinner {
+      width: 36px; height: 36px; border-radius: 50%;
+      border: 3px solid var(--border); border-top-color: var(--accent);
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── PAGINATION ── */
+    .pagination {
+      display: flex; align-items: center; justify-content: flex-end;
+      gap: 8px; padding: 16px 20px;
+      border-top: 1px solid var(--border);
+    }
+    .pagination button {
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text); border-radius: 6px; padding: 6px 12px;
+      cursor: pointer; font-family: 'Syne', sans-serif; font-size: .8rem;
+      transition: border-color .2s, background .2s;
+    }
+    .pagination button:hover:not(:disabled) { border-color: var(--accent); background: rgba(88,166,255,.08); }
+    .pagination button:disabled { opacity: .35; cursor: default; }
+    .pagination button.active { background: var(--accent); border-color: var(--accent); color: #000; font-weight: 700; }
+    .page-info { font-family: 'JetBrains Mono', monospace; font-size: .78rem; color: var(--muted); }
+
+    /* ── FOOTER ── */
+    footer {
+      text-align: center; padding: 24px;
+      font-family: 'JetBrains Mono', monospace; font-size: .72rem; color: var(--muted);
+      border-top: 1px solid var(--border); margin-top: 40px;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── ERROR BANNER ── */
+    .error-banner {
+      background: rgba(247,129,102,.1); border: 1px solid rgba(247,129,102,.4);
+      color: var(--accent3); border-radius: 10px; padding: 14px 20px;
+      margin-bottom: 24px; font-size: .875rem; display: none;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+      <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+    </svg>
+    Live Dashboard
+  </div>
+  <div class="header-right">
+    <div class="status-pill"><div class="pulse"></div><span id="statusText">Connecting…</span></div>
+    <button class="refresh-btn" id="refreshBtn" onclick="loadData()">
+      <svg id="refreshIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+      </svg>
+      Refresh
+    </button>
+  </div>
+</header>
+
+<main>
+  <div class="error-banner" id="errorBanner"></div>
+
+  <!-- Stats -->
+  <div class="stats-grid" id="statsGrid"></div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <div class="toolbar-left">
+      <input class="search" id="searchInput" type="text" placeholder="Search all columns…" oninput="applyFilters()" />
+      <select class="col-select" id="colFilter" onchange="applyFilters()"><option value="">All Columns</option></select>
+      <select class="col-select" id="valFilter" onchange="applyFilters()"><option value="">All Values</option></select>
+    </div>
+    <span class="row-count" id="rowCount"></span>
+  </div>
+
+  <!-- Table -->
+  <div class="table-wrap">
+    <div class="table-scroll">
+      <table id="dataTable">
+        <thead id="tableHead"></thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+    <div id="emptyMsg" class="center-msg" style="display:none">
+      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      No matching records found.
+    </div>
+    <div id="loadMsg" class="center-msg">
+      <div class="spinner"></div>Fetching data from Google Sheets…
+    </div>
+    <div class="pagination" id="pagination" style="display:none"></div>
+  </div>
+</main>
+
+<footer id="footer">Last updated: —</footer>
+
+<script>
+// ── CONFIG ──────────────────────────────────────────────────────────────────
+const SHEET_URL = "https://script.google.com/macros/s/AKfycbxk5LSsroYzH17DUd72NnmIqvsrNmaD-TyggCLCyqVCXrGbnbMrKjlD322omTPbBgIsRA/exec";
+const PAGE_SIZE = 20;
+
+// ── STATE ───────────────────────────────────────────────────────────────────
+let allRows    = [];
+let headers    = [];
+let filtered   = [];
+let sortCol    = -1;
+let sortDir    = 1;   // 1 asc, -1 desc
+let currentPage = 1;
+const BADGE_COLORS = ['badge-blue','badge-green','badge-red','badge-purple'];
+const colorMap  = {};
+let colorIdx    = 0;
+
+// ── FETCH via JSONP (bypasses CORS on Google Apps Script) ───────────────────
+function loadData() {
+  setStatus('Syncing…', false);
+  spinRefresh(true);
+  hideError();
+
+  // Remove any previous JSONP script tag
+  const old = document.getElementById('jsonp-script');
+  if (old) old.remove();
+
+  // Unique callback name per request to avoid caching collisions
+  const cbName = '__dashCb_' + Date.now();
+
+  // Timeout guard
+  const timer = setTimeout(() => {
+    delete window[cbName];
+    showError('Request timed out. Check that your Apps Script is deployed as "Anyone" with access.');
+    setStatus('Timeout', false);
+    spinRefresh(false);
+  }, 15000);
+
+  window[cbName] = function(data) {
+    clearTimeout(timer);
+    delete window[cbName];
+    document.getElementById('jsonp-script')?.remove();
+
+    try {
+      // Support various response shapes:
+      // 1. { headers: [...], rows: [[...], ...] }
+      // 2. Array of objects [{col:val,...},...]
+      // 3. Array of arrays [ [header,...], [val,...], ... ]
+      let rows, hdrs;
+
+      if (Array.isArray(data)) {
+        if (data.length === 0) { hdrs = []; rows = []; }
+        else if (Array.isArray(data[0])) {
+          hdrs = data[0];
+          rows = data.slice(1).map(r => {
+            const obj = {};
+            hdrs.forEach((h, i) => obj[h] = r[i] ?? '');
+            return obj;
+          });
+        } else {
+          hdrs = Object.keys(data[0]);
+          rows = data;
+        }
+      } else if (data.headers && data.rows) {
+        hdrs = data.headers;
+        rows = data.rows.map(r => {
+          if (Array.isArray(r)) {
+            const obj = {};
+            hdrs.forEach((h, i) => obj[h] = r[i] ?? '');
+            return obj;
+          }
+          return r;
+        });
+      } else {
+        hdrs = Object.keys(data);
+        rows = [data];
+      }
+
+      headers = hdrs;
+      allRows = rows;
+      buildUI();
+      applyFilters();
+      setStatus('Live · ' + new Date().toLocaleTimeString(), true);
+      document.getElementById('footer').textContent =
+        'Last updated: ' + new Date().toLocaleString();
+    } catch(e) {
+      showError('Data parse error: ' + e.message);
+      setStatus('Error', false);
+    } finally {
+      spinRefresh(false);
+    }
+  };
+
+  const script = document.createElement('script');
+  script.id  = 'jsonp-script';
+  script.src = SHEET_URL + '?callback=' + cbName;
+  script.onerror = () => {
+    clearTimeout(timer);
+    delete window[cbName];
+    showError('Script load failed. Make sure your Apps Script is deployed publicly (Anyone can access, no sign-in).');
+    setStatus('Error', false);
+    spinRefresh(false);
+  };
+  document.head.appendChild(script);
+}
+
+// ── BUILD HEADERS & FILTERS ──────────────────────────────────────────────────
+function buildUI() {
+  // --- Table head ---
+  const thead = document.getElementById('tableHead');
+  const tr    = document.createElement('tr');
+  headers.forEach((h, i) => {
+    const th = document.createElement('th');
+    th.innerHTML = `${h} <i class="sort-icon">↕</i>`;
+    th.onclick = () => sortBy(i, h);
+    tr.appendChild(th);
+  });
+  thead.innerHTML = '';
+  thead.appendChild(tr);
+
+  // --- Column filter ---
+  const colSel = document.getElementById('colFilter');
+  colSel.innerHTML = '<option value="">All Columns</option>';
+  headers.forEach(h => {
+    const o = document.createElement('option');
+    o.value = h; o.textContent = h;
+    colSel.appendChild(o);
+  });
+
+  colSel.onchange = () => {
+    buildValFilter();
+    applyFilters();
+  };
+}
+
+function buildValFilter() {
+  const col    = document.getElementById('colFilter').value;
+  const valSel = document.getElementById('valFilter');
+  valSel.innerHTML = '<option value="">All Values</option>';
+  if (!col) return;
+  const uniq = [...new Set(allRows.map(r => String(r[col] ?? '')))].sort();
+  uniq.forEach(v => {
+    const o = document.createElement('option');
+    o.value = v; o.textContent = v;
+    valSel.appendChild(o);
+  });
+}
+
+// ── FILTER / SORT / PAGINATE ─────────────────────────────────────────────────
+function applyFilters() {
+  const q   = document.getElementById('searchInput').value.toLowerCase();
+  const col = document.getElementById('colFilter').value;
+  const val = document.getElementById('valFilter').value;
+
+  filtered = allRows.filter(row => {
+    const matchSearch = !q || headers.some(h => String(row[h] ?? '').toLowerCase().includes(q));
+    const matchCol    = !col || !val || String(row[col] ?? '') === val;
+    return matchSearch && matchCol;
+  });
+
+  if (sortCol >= 0) {
+    const h = headers[sortCol];
+    filtered.sort((a, b) => {
+      const av = a[h] ?? '', bv = b[h] ?? '';
+      const an = parseFloat(av), bn = parseFloat(bv);
+      if (!isNaN(an) && !isNaN(bn)) return (an - bn) * sortDir;
+      return String(av).localeCompare(String(bv)) * sortDir;
+    });
+  }
+
+  currentPage = 1;
+  renderStats();
+  renderPage();
+}
+
+function sortBy(idx, h) {
+  if (sortCol === idx) sortDir *= -1; else { sortCol = idx; sortDir = 1; }
+
+  document.querySelectorAll('thead th').forEach((th, i) => {
+    th.classList.remove('asc','desc');
+    th.querySelector('.sort-icon').textContent = '↕';
+  });
+  const th = document.querySelectorAll('thead th')[idx];
+  th.classList.add(sortDir === 1 ? 'asc' : 'desc');
+  th.querySelector('.sort-icon').textContent = sortDir === 1 ? '↑' : '↓';
+  applyFilters();
+}
+
+// ── RENDER TABLE PAGE ────────────────────────────────────────────────────────
+function renderPage() {
+  const tbody  = document.getElementById('tableBody');
+  const loadMsg  = document.getElementById('loadMsg');
+  const emptyMsg = document.getElementById('emptyMsg');
+  const paginationEl = document.getElementById('pagination');
+
+  loadMsg.style.display = 'none';
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = '';
+    emptyMsg.style.display = 'flex';
+    paginationEl.style.display = 'none';
+    document.getElementById('rowCount').textContent = '0 rows';
+    return;
+  }
+
+  emptyMsg.style.display = 'none';
+
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  currentPage = Math.min(currentPage, totalPages);
+  const start  = (currentPage - 1) * PAGE_SIZE;
+  const pageRows = filtered.slice(start, start + PAGE_SIZE);
+
+  tbody.innerHTML = '';
+  pageRows.forEach((row, ri) => {
+    const tr = document.createElement('tr');
+    tr.style.animationDelay = (ri * 20) + 'ms';
+    headers.forEach(h => {
+      const td  = document.createElement('td');
+      const raw = String(row[h] ?? '');
+      td.textContent = raw;
+      td.title       = raw;
+
+      // Badge short values (likely statuses / categories)
+      if (raw.length <= 24 && raw.length > 0 && isNaN(parseFloat(raw))) {
+        if (!colorMap[raw]) { colorMap[raw] = BADGE_COLORS[colorIdx++ % BADGE_COLORS.length]; }
+        const span = document.createElement('span');
+        span.className = 'badge ' + colorMap[raw];
+        span.textContent = raw;
+        td.textContent = '';
+        td.appendChild(span);
+      }
+
+      // Mono for numbers / dates
+      if (!isNaN(parseFloat(raw)) || /\d{4}-\d{2}-\d{2}/.test(raw)) td.classList.add('mono');
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById('rowCount').textContent =
+    `${filtered.length} row${filtered.length !== 1 ? 's' : ''}`;
+
+  renderPagination(totalPages);
+}
+
+function renderPagination(total) {
+  const el = document.getElementById('pagination');
+  if (total <= 1) { el.style.display = 'none'; return; }
+  el.style.display = 'flex';
+  el.innerHTML = '';
+
+  const add = (label, page, active, disabled) => {
+    const b = document.createElement('button');
+    b.textContent = label;
+    if (active)   b.classList.add('active');
+    if (disabled) b.disabled = true;
+    b.onclick = () => { currentPage = page; renderPage(); };
+    el.appendChild(b);
+  };
+
+  add('‹', currentPage - 1, false, currentPage === 1);
+
+  const range = paginationRange(currentPage, total);
+  let prev = null;
+  range.forEach(p => {
+    if (prev !== null && p - prev > 1) {
+      const dots = document.createElement('span');
+      dots.className = 'page-info'; dots.textContent = '…';
+      el.appendChild(dots);
+    }
+    add(p, p, p === currentPage, false);
+    prev = p;
+  });
+
+  add('›', currentPage + 1, false, currentPage === total);
+}
+
+function paginationRange(cur, total) {
+  const delta = 2, range = [], r = [];
+  for (let i = Math.max(1, cur-delta); i <= Math.min(total, cur+delta); i++) range.push(i);
+  if (range[0] > 1) r.push(1);
+  range.forEach(p => r.push(p));
+  if (range[range.length-1] < total) r.push(total);
+  return [...new Set(r)];
+}
+
+// ── STATS CARDS ──────────────────────────────────────────────────────────────
+function renderStats() {
+  const grid = document.getElementById('statsGrid');
+  grid.innerHTML = '';
+
+  // Card 1: Total rows
+  addStat(grid, 'Total Records', allRows.length, filtered.length + ' matching', 'c1');
+
+  // Card 2: Columns
+  addStat(grid, 'Columns', headers.length, headers.slice(0,3).join(', ') + (headers.length > 3 ? '…' : ''), 'c2');
+
+  // Card 3 & 4: numeric column summaries
+  let numCount = 0;
+  for (const h of headers) {
+    if (numCount >= 2) break;
+    const nums = allRows.map(r => parseFloat(r[h])).filter(n => !isNaN(n));
+    if (nums.length > allRows.length * 0.4) {
+      const sum = nums.reduce((a,b) => a+b, 0);
+      const avg = (sum / nums.length).toFixed(1);
+      addStat(grid, h + ' (sum)', fmt(sum), 'avg ' + fmt(avg), numCount === 0 ? 'c3' : 'c4');
+      numCount++;
+    }
+  }
+
+  // Fallback stat cards for non-numeric sheets
+  if (numCount === 0 && headers.length > 0) {
+    const h = headers[0];
+    const uniq = new Set(allRows.map(r => r[h]));
+    addStat(grid, 'Unique ' + h, uniq.size, 'distinct values', 'c3');
+  }
+}
+
+function addStat(parent, label, value, sub, cls) {
+  const d = document.createElement('div');
+  d.className = 'stat-card ' + cls;
+  d.innerHTML = `<div class="stat-label">${label}</div>
+                 <div class="stat-value">${value}</div>
+                 <div class="stat-sub">${sub}</div>`;
+  parent.appendChild(d);
+}
+
+function fmt(n) {
+  return Number(n).toLocaleString(undefined, {maximumFractionDigits: 2});
+}
+
+// ── UI HELPERS ────────────────────────────────────────────────────────────────
+function setStatus(msg, ok) {
+  const el  = document.getElementById('statusText');
+  const dot = document.querySelector('.pulse');
+  el.textContent = msg;
+  dot.style.background = ok ? 'var(--accent2)' : ok === false ? 'var(--accent3)' : 'var(--accent)';
+}
+
+function spinRefresh(on) {
+  const btn = document.getElementById('refreshBtn');
+  btn.classList.toggle('spinning', on);
+}
+
+function showError(msg) {
+  const el = document.getElementById('errorBanner');
+  el.textContent = '⚠ ' + msg;
+  el.style.display = 'block';
+  document.getElementById('loadMsg').style.display = 'none';
+}
+
+function hideError() {
+  document.getElementById('errorBanner').style.display = 'none';
+}
+
+// ── AUTO-REFRESH every 60 s ──────────────────────────────────────────────────
+loadData();
+setInterval(loadData, 60_000);
+window.loadData = loadData;
+</script>
+</body>
+</html>
