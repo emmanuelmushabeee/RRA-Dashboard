@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Tax Compliance Audit Dashboard | RRA Rwanda</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+/* ── TOKENS ── */
+:root {
+  --bg:      #050f07;
+  --s1:      #0a1f0d;
+  --s2:      #0e2912;
+  --border:  #1a4d25;
+  --green:   #3dba5e;
+  --green2:  #6fda6f;
+  --lime:    #b8f0b8;
+  --muted:   #7ab87a;
+  --text:    #d8f0d8;
+  --white:   #f0faf0;
+  --red:     #e05555;
+  --yellow:  #e8c840;
+  --blue:    #55b8e0;
+  --purple:  #a855e8;
+  --font:    'Segoe UI', Arial, sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh;}
+a{color:var(--green2);}
+
+/* ── HEADER ── */
+header{
+  background:linear-gradient(135deg,#030d05,#0a2f0d);
+  border-bottom:1px solid var(--border);
+  padding:18px 28px;
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;
+  position:sticky;top:0;z-index:200;
+}
+.logo-area h1{font-size:1.05rem;font-weight:700;color:var(--white);letter-spacing:.5px;}
+.logo-area p{font-size:.72rem;color:var(--muted);margin-top:2px;}
+.header-right{display:flex;align-items:center;gap:10px;}
+.pill{
+  display:flex;align-items:center;gap:6px;
+  padding:5px 13px;border-radius:20px;border:1px solid var(--border);
+  font-size:.72rem;font-family:monospace;
+  background:rgba(61,186,94,.07);color:var(--green2);
+  transition:border-color .3s;
+}
+.pill.ok{border-color:rgba(61,186,94,.4);}
+.pill.err{border-color:rgba(224,85,85,.4);color:var(--red);background:rgba(224,85,85,.07);}
+.dot{width:7px;height:7px;border-radius:50%;background:currentColor;animation:blink 2s infinite;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:.25;}}
+.btn{
+  background:var(--s2);border:1px solid var(--border);color:var(--text);
+  border-radius:7px;padding:7px 14px;cursor:pointer;
+  font-size:.8rem;font-weight:600;display:flex;align-items:center;gap:6px;
+  transition:border-color .2s,background .2s;
+}
+.btn:hover{border-color:var(--green);background:rgba(61,186,94,.1);}
+.spin-icon{transition:transform .6s;}
+.spinning .spin-icon{transform:rotate(360deg);}
+
+/* ── LAYOUT ── */
+main{padding:24px;max-width:1440px;margin:0 auto;}
+
+/* ── SECTION HEADINGS ── */
+.section-title{
+  font-size:.65rem;text-transform:uppercase;letter-spacing:2px;
+  color:var(--muted);margin:28px 0 14px;
+  display:flex;align-items:center;gap:10px;
+}
+.section-title::after{content:'';flex:1;height:1px;background:var(--border);}
+
+/* ── STAT CARDS ROW ── */
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:20px;}
+.kpi{
+  background:var(--s1);border:1px solid var(--border);border-radius:11px;padding:16px 18px;
+  position:relative;overflow:hidden;
+}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:3px 3px 0 0;}
+.kpi.c0::before{background:linear-gradient(90deg,var(--green),var(--green2));}
+.kpi.c1::before{background:linear-gradient(90deg,var(--blue),var(--green));}
+.kpi.c2::before{background:linear-gradient(90deg,var(--yellow),var(--green2));}
+.kpi.c3::before{background:linear-gradient(90deg,var(--purple),var(--blue));}
+.kpi.c4::before{background:linear-gradient(90deg,var(--red),var(--yellow));}
+.kpi.c5::before{background:linear-gradient(90deg,var(--green2),var(--lime));}
+.kpi-label{font-size:.62rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin-bottom:8px;}
+.kpi-value{font-size:2rem;font-weight:800;color:var(--green2);line-height:1;}
+.kpi-sub{font-size:.68rem;color:var(--muted);margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* ── CHARTS GRID ── */
+.charts-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px;margin-bottom:20px;}
+.chart-card{
+  background:var(--s1);border:1px solid var(--border);border-radius:11px;padding:16px;
+  display:flex;flex-direction:column;
+}
+.chart-card h4{font-size:.78rem;color:var(--green2);margin-bottom:12px;text-align:center;letter-spacing:.3px;}
+.chart-card canvas{max-height:210px;width:100%!important;}
+
+/* ── LIKERT HEATMAP ── */
+.likert-grid{display:grid;gap:0;}
+.likert-row{
+  display:grid;grid-template-columns:1fr repeat(5,50px);gap:2px;
+  align-items:center;padding:5px 0;border-bottom:1px solid rgba(26,77,37,.4);
+}
+.likert-row:last-child{border-bottom:none;}
+.likert-label{font-size:.72rem;color:var(--text);padding-right:8px;}
+.lk-cell{
+  height:30px;border-radius:4px;display:flex;align-items:center;justify-content:center;
+  font-size:.65rem;font-weight:700;color:#000;transition:transform .15s;
+  cursor:default;
+}
+.lk-cell:hover{transform:scale(1.05);}
+.lk-header{display:grid;grid-template-columns:1fr repeat(5,50px);gap:2px;padding:4px 0 8px;}
+.lk-header span{font-size:.6rem;text-align:center;color:var(--muted);}
+.lk-header span:first-child{text-align:left;}
+.lk-mean{font-size:.75rem;font-weight:700;margin-top:10px;color:var(--green2);text-align:right;}
+
+/* ── PROGRESS BARS ── */
+.progress-list{display:flex;flex-direction:column;gap:8px;}
+.prog-item{}
+.prog-top{display:flex;justify-content:space-between;font-size:.72rem;margin-bottom:3px;}
+.prog-bar-wrap{background:rgba(26,77,37,.4);border-radius:4px;height:8px;overflow:hidden;}
+.prog-bar{height:100%;border-radius:4px;transition:width .8s ease;}
+
+/* ── YES/NO SCORECARD ── */
+.yn-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;}
+.yn-card{
+  background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:14px;
+}
+.yn-title{font-size:.68rem;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;}
+.yn-bar-wrap{background:rgba(26,77,37,.3);border-radius:20px;height:12px;overflow:hidden;display:flex;}
+.yn-bar-yes{background:var(--green);border-radius:20px 0 0 20px;}
+.yn-bar-no{background:var(--red);}
+.yn-legend{display:flex;justify-content:space-between;font-size:.68rem;margin-top:6px;}
+.yn-pct-yes{color:var(--green);}
+.yn-pct-no{color:var(--red);}
+
+/* ── LOADING / ERROR ── */
+.center-msg{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:80px 20px;color:var(--muted);font-family:monospace;font-size:.85rem;}
+.spinner{width:36px;height:36px;border-radius:50%;border:3px solid var(--border);border-top-color:var(--green);animation:spin .65s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.err-banner{display:none;background:rgba(224,85,85,.08);border:1px solid rgba(224,85,85,.3);color:var(--red);border-radius:10px;padding:13px 18px;margin-bottom:20px;font-size:.85rem;line-height:1.6;}
+
+/* ── FOOTER ── */
+footer{text-align:center;padding:20px;font-family:monospace;font-size:.7rem;color:var(--muted);border-top:1px solid var(--border);margin-top:32px;}
+
+/* ── RESPONSIVE ── */
+@media(max-width:700px){
+  .kpi-row{grid-template-columns:repeat(2,1fr);}
+  .charts-grid{grid-template-columns:1fr;}
+  .likert-row{grid-template-columns:1fr repeat(5,36px);}
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="logo-area">
+    <h1>📊 Optimizing Tax Compliance through Effective Audits</h1>
+    <p>Rwanda Revenue Authority (RRA) | Live Survey Dashboard</p>
+  </div>
+  <div class="header-right">
+    <div class="pill" id="statusPill"><div class="dot"></div><span id="statusText">Connecting…</span></div>
+    <button class="btn" id="refreshBtn" onclick="loadData()">
+      <svg class="spin-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+      </svg>Refresh
+    </button>
+  </div>
+</header>
+
+<main>
+  <div class="err-banner" id="errBanner"></div>
+  <div id="loadMsg" class="center-msg"><div class="spinner"></div>Loading survey data…</div>
+  <div id="dashboard" style="display:none">
+
+    <!-- KPI SUMMARY -->
+    <div class="section-title">📋 Survey Overview</div>
+    <div class="kpi-row" id="kpiRow"></div>
+
+    <!-- SECTION A: FIRM BACKGROUND -->
+    <div class="section-title">🏢 Section A — Respondent & Firm Background</div>
+    <div class="charts-grid" id="secA"></div>
+
+    <!-- SECTION B: AUDIT HISTORY -->
+    <div class="section-title">📁 Section B — Audit History & Characteristics</div>
+    <div class="charts-grid" id="secB"></div>
+
+    <!-- SECTION C: AUDIT PROCESS -->
+    <div class="section-title">⚙️ Section C — Audit Process Experience</div>
+    <div class="charts-grid" id="secC"></div>
+
+    <!-- SECTION D: TRANSPARENCY / FAIRNESS -->
+    <div class="section-title">⚖️ Section D — Transparency, Fairness & Integrity</div>
+    <div class="charts-grid" id="secD"></div>
+    <div class="section-title" style="margin-top:14px;">Section D Likert Scores (1=Strongly Disagree → 5=Strongly Agree)</div>
+    <div class="chart-card" style="margin-bottom:20px;" id="secDLikert"></div>
+
+    <!-- SECTION E: FINDINGS & OUTCOMES -->
+    <div class="section-title">📑 Section E — Audit Findings & Outcomes</div>
+    <div class="charts-grid" id="secE"></div>
+
+    <!-- SECTIONS G–J: LIKERT PANELS -->
+    <div class="section-title">🔄 Section G — Impact on Compliance Behaviour</div>
+    <div class="chart-card" style="margin-bottom:20px;" id="secGLikert"></div>
+
+    <div class="section-title">🤝 Section H — Trust & Perceptions of RRA</div>
+    <div class="chart-card" style="margin-bottom:20px;" id="secHLikert"></div>
+
+    <div class="section-title">📚 Section I — Facilitation & Learning</div>
+    <div class="chart-card" style="margin-bottom:20px;" id="secILikert"></div>
+
+    <div class="section-title">🚨 Section J — Deterrence & Perceived Audit Risk</div>
+    <div class="chart-card" style="margin-bottom:20px;" id="secJLikert"></div>
+
+    <!-- SECTION K/L/M/N: OUTCOMES -->
+    <div class="section-title">✅ Overall Outcomes & Perceptions</div>
+    <div class="charts-grid" id="secKL"></div>
+
+    <!-- YES/NO SCORECARDS -->
+    <div class="section-title">✔ Yes / No Indicators</div>
+    <div class="yn-grid" id="ynGrid"></div>
+
+  </div>
+</main>
+<footer id="footer">Awaiting data…</footer>
+
+<script>
+// ════════════════════════════════════════════════════════
+//  CONFIG — paste your deployed Apps Script URL here
+// ════════════════════════════════════════════════════════
+const SHEET_URL = 'https://script.google.com/macros/s/AKfycbxk5LSsroYzH17DUd72NnmIqvsrNmaD-TyggCLCyqVCXrGbnbMrKjlD322omTPbBgIsRA/exec';
+// ════════════════════════════════════════════════════════
+
+// colour palettes
+const P_GREEN  = ['#3dba5e','#6fda6f','#b8f0b8','#1a7a35','#0e4d1f'];
+const P_MULTI  = ['#3dba5e','#55b8e0','#e8c840','#a855e8','#e05555','#6fda6f','#3fa0d0','#c8a020'];
+const P_LIKERT = ['#e05555','#e8a020','#e8c840','#5db85d','#3dba5e'];
+
+// Chart registry (for destroy on reload)
+const charts = {};
+
+// ── JSONP LOAD ────────────────────────────────────────────
+function loadData() {
+  status('Syncing…','');
+  spin(true);
+  hideErr();
+
+  const old = document.getElementById('_jsonp');
+  if (old) old.remove();
+
+  const cb  = '__rra_' + Date.now();
+  const tid = setTimeout(() => {
+    delete window[cb];
+    showErr('⏱ Request timed out. Check the Apps Script is deployed as "Anyone" access.');
+    status('Timeout','err');
+    spin(false);
+  }, 20000);
+
+  window[cb] = function(data) {
+    clearTimeout(tid);
+    delete window[cb];
+    document.getElementById('_jsonp')?.remove();
+    spin(false);
+    if (data && data.error) { showErr('Apps Script error: ' + data.error); status('Error','err'); return; }
+    render(data);
+  };
+
+  const s  = document.createElement('script');
+  s.id     = '_jsonp';
+  s.src    = SHEET_URL + '?callback=' + cb;
+  s.onerror = () => {
+    clearTimeout(tid);
+    delete window[cb];
+    showErr('❌ Failed to load. Ensure Apps Script is deployed publicly with "Anyone" access.');
+    status('Error','err');
+    spin(false);
+    document.getElementById('loadMsg').style.display = 'none';
+  };
+  document.head.appendChild(s);
+}
+
+// ── RENDER ────────────────────────────────────────────────
+function render(d) {
+  document.getElementById('loadMsg').style.display    = 'none';
+  document.getElementById('dashboard').style.display  = 'block';
+
+  const N   = d.meta.totalResponses;
+  const ql  = d.meta.questionLabels;
+
+  // KPI Cards
+  const kpiData = [
+    { label:'Total Responses',       value: N,  sub:'survey respondents', c:'c0'},
+    { label:'Additional Tax Issued',  value: d.sectionE.addditional_tax.yesPct+'%', sub: d.sectionE.addditional_tax.yes+' of '+d.sectionE.addditional_tax.total, c:'c1'},
+    { label:'Compliance Improved',    value: pct(d.sectionKL.change_behaviour, ['Yes, significantly improved','Yes, somewhat improved'])+'%', sub:'changed behaviour after audit', c:'c2'},
+    { label:'No Corruption Reported', value: (100 - pctExact(d.sectionD.payment, 'Yes'))+'%', sub:'free from informal payment requests', c:'c3'},
+    { label:'Satisfied with Audit',   value: pct(d.sectionKL.satisfied_process, ['Very satisfied','Satisfied'])+'%', sub:'rated process satisfactory', c:'c4'},
+    { label:'Voluntary Compliance',   value: pct(d.sectionKL.comply_voluntarily, ['Very likely','Likely'])+'%', sub:'likely to comply voluntarily', c:'c5'}
+  ];
+  document.getElementById('kpiRow').innerHTML = kpiData.map(k =>
+    `<div class="kpi ${k.c}"><div class="kpi-label">${k.label}</div><div class="kpi-value">${k.value}</div><div class="kpi-sub">${k.sub}</div></div>`
+  ).join('');
+
+  // ── Section A ────────────────────────────────────────────
+  const secA = document.getElementById('secA');
+  secA.innerHTML = '';
+  buildBar(secA, 'gender',          d.sectionA.gender,          ql.gender,          P_GREEN);
+  buildDoughnut(secA, 'service',    d.sectionA.service,         ql.service,         P_MULTI);
+  buildBar(secA, 'size',            d.sectionA.size,            ql.size,            P_MULTI);
+  buildBar(secA, 'num_employees',   d.sectionA.num_employees,   ql.num_employees,   P_GREEN);
+  buildBar(secA, 'age_group',       d.sectionA.age_group,       ql.age_group,       P_MULTI);
+  buildBar(secA, 'edu_level',       d.sectionA.edu_level,       ql.edu_level,       P_MULTI);
+  buildDoughnut(secA, 'use_auditors',d.sectionA.use_auditors,   ql.use_auditors,    P_GREEN);
+  buildBar(secA, 'long',            d.sectionA.long,            ql.long,            P_MULTI);
+
+  // ── Section B ────────────────────────────────────────────
+  const secB = document.getElementById('secB');
+  secB.innerHTML = '';
+  buildBar(secB, 'times_audited',   d.sectionB.times_audited,   ql.times_audited,   P_GREEN);
+  buildDoughnut(secB,'recent_audit',d.sectionB.recent_audit,    ql.recent_audit,    P_MULTI);
+  buildBar(secB, 'ways_audit',      d.sectionB.ways_audit,      ql.ways_audit,      P_MULTI);
+  buildBar(secB, 'notification_way',d.sectionB.notification_way,ql.notification_way,P_GREEN);
+  buildDoughnut(secB,'understand_reason',d.sectionB.understand_reason,ql.understand_reason,P_MULTI);
+
+  // ── Section C ────────────────────────────────────────────
+  const secC = document.getElementById('secC');
+  secC.innerHTML = '';
+  buildBar(secC, 'rate_clarity',    d.sectionC.rate_clarity,    ql.rate_clarity,    P_LIKERT);
+  buildBar(secC, 'proffessionalism',d.sectionC.proffessionalism,ql.proffessionalism,P_LIKERT);
+  buildDoughnut(secC,'auditor_explain',d.sectionC.auditor_explain,ql.auditor_explain,P_MULTI);
+  buildBar(secC, 'time_spend',      d.sectionC.time_spend,      ql.time_spend,      P_MULTI);
+  buildBar(secC, 'disrupt_business',d.sectionC.disrupt_business,ql.disrupt_business,P_LIKERT);
+
+  // ── Section D ────────────────────────────────────────────
+  const secD = document.getElementById('secD');
+  secD.innerHTML = '';
+  buildBar(secD, 'payment',         d.sectionD.payment,         ql.payment,         P_MULTI);
+  renderLikertPanel(
+    document.getElementById('secDLikert'),
+    d.sectionD.likert, ql,
+    ['process','creterias','treated_proff','finding_explained','no_discrimination','free_corruption']
+  );
+
+  // ── Section E ────────────────────────────────────────────
+  const secE = document.getElementById('secE');
+  secE.innerHTML = '';
+  buildDoughnut(secE,'addditional_tax_freq',d.sectionE.fairness_tax,'Fairness of Additional Tax Assessment',P_LIKERT);
+  buildBar(secE,'how_responded',d.sectionE.how_responded,ql.how_responded,P_MULTI);
+
+  // ── Likert panels G–J ────────────────────────────────────
+  renderLikertPanel(document.getElementById('secGLikert'), d.sectionG.likert, ql,
+    ['complaince','record_keeping','timelines','attention_tax','tax_understanding']);
+  renderLikertPanel(document.getElementById('secHLikert'), d.sectionH.likert, ql,
+    ['trust','equally','confortable','level_trust']);
+  renderLikertPanel(document.getElementById('secILikert'), d.sectionI.likert, ql,
+    ['guidance','training','support','access_rra']);
+  renderLikertPanel(document.getElementById('secJLikert'), d.sectionJ.likert, ql,
+    ['under_report','comp_decisions','penalities_imposed','follow_up','non_compliance','tax_envasion']);
+
+  // ── Section K/L ──────────────────────────────────────────
+  const secKL = document.getElementById('secKL');
+  secKL.innerHTML = '';
+  buildBar(secKL,'change_behaviour', d.sectionKL.change_behaviour,  ql.change_behaviour,  P_MULTI);
+  buildBar(secKL,'comply_voluntarily',d.sectionKL.comply_voluntarily,ql.comply_voluntarily,P_LIKERT);
+  buildBar(secKL,'effective_ness',   d.sectionKL.effective_ness,    ql.effective_ness,    P_LIKERT);
+  buildBar(secKL,'satisfied_process',d.sectionKL.satisfied_process,ql.satisfied_process, P_LIKERT);
+
+  // ── Yes/No scorecards ────────────────────────────────────
+  const ynItems = [
+    { label: ql.suff_time,      data: d.sectionC.suff_time },
+    { label: ql.documents,      data: d.sectionC.documents },
+    { label: ql.addditional_tax,data: d.sectionE.addditional_tax },
+    { label: ql.tax_laws,       data: d.sectionKL.tax_laws },
+    { label: ql.additional_cost,data: d.sectionKL.additional_cost },
+    { label: ql.clear_guidance, data: d.sectionKL.clear_guidance },
+    { label: ql.post_audit,     data: d.sectionKL.post_audit }
+  ];
+  const ynGrid = document.getElementById('ynGrid');
+  ynGrid.innerHTML = ynItems.map(yn => {
+    const yes = yn.data.yesPct, no = 100 - yes;
+    return `<div class="yn-card">
+      <div class="yn-title">${yn.label||''}</div>
+      <div class="yn-bar-wrap">
+        <div class="yn-bar-yes" style="width:${yes}%"></div>
+        <div class="yn-bar-no" style="width:${no}%"></div>
+      </div>
+      <div class="yn-legend">
+        <span class="yn-pct-yes">✓ Yes: ${yes}% (${yn.data.yes})</span>
+        <span class="yn-pct-no">✗ No: ${no}% (${yn.data.no})</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  status('Live · '+new Date().toLocaleTimeString(), 'ok');
+  document.getElementById('footer').textContent =
+    'Last synced: '+new Date().toLocaleString()+' · Auto-refresh every 90 s | Rwanda Revenue Authority Survey Dashboard';
+}
+
+// ── CHART BUILDERS ────────────────────────────────────────
+function buildBar(parent, id, freqArr, title, palette) {
+  if (!freqArr || !freqArr.length) return;
+  const card = makeCard(parent, title);
+  const canvas = document.createElement('canvas');
+  card.appendChild(canvas);
+  destroyChart(id);
+  charts[id] = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels:   freqArr.map(f => wrap(f.label, 20)),
+      datasets: [{ data: freqArr.map(f => f.n),
+        backgroundColor: freqArr.map((_,i) => palette[i % palette.length]),
+        borderRadius: 4, borderSkipped: false }]
+    },
+    options: {
+      indexAxis: freqArr.length > 4 ? 'y' : 'x',
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx =>
+          ` ${ctx.raw} responses (${freqArr[ctx.dataIndex].pct}%)`
+        }}
+      },
+      scales: {
+        x: { ticks: { color: '#7ab87a', font: { size: 10 } }, grid: { color: 'rgba(26,77,37,.3)' } },
+        y: { ticks: { color: '#7ab87a', font: { size: 10 } }, grid: { color: 'rgba(26,77,37,.3)' } }
+      }
+    }
+  });
+}
+
+function buildDoughnut(parent, id, freqArr, title, palette) {
+  if (!freqArr || !freqArr.length) return;
+  const card = makeCard(parent, title);
+  const canvas = document.createElement('canvas');
+  card.appendChild(canvas);
+  destroyChart(id);
+  charts[id] = new Chart(canvas, {
+    type: 'doughnut',
+    data: {
+      labels:   freqArr.map(f => f.label),
+      datasets: [{ data: freqArr.map(f => f.n),
+        backgroundColor: freqArr.map((_,i) => palette[i % palette.length]),
+        borderColor: '#0a1f0d', borderWidth: 2 }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: 'bottom', labels: { color: '#7ab87a', font: { size: 10 }, boxWidth: 10, padding: 8 } },
+        tooltip: { callbacks: { label: ctx =>
+          ` ${ctx.label}: ${ctx.raw} (${freqArr[ctx.dataIndex].pct}%)`
+        }}
+      }
+    }
+  });
+}
+
+// ── LIKERT HEATMAP PANEL ──────────────────────────────────
+function renderLikertPanel(el, likert, ql, fields) {
+  el.innerHTML = '';
+  const SCALE = ['Str. Disagree','Disagree','Neutral','Agree','Str. Agree'];
+  const COLS   = ['#e05555','#e8a020','#e8c840','#5db85d','#3dba5e'];
+
+  const hdr = document.createElement('div');
+  hdr.className = 'lk-header';
+  hdr.innerHTML = '<span style="color:var(--muted);font-size:.65rem;">Statement</span>' +
+    SCALE.map((s,i)=>`<span style="color:${COLS[i]}">${s}</span>`).join('');
+  el.appendChild(hdr);
+
+  const grid = document.createElement('div');
+  grid.className = 'likert-grid';
+
+  fields.forEach(f => {
+    const d = likert[f];
+    if (!d) return;
+    const total = d.dist.reduce((a,b) => a+b, 0);
+    const row = document.createElement('div');
+    row.className = 'likert-row';
+    const labelEl = document.createElement('div');
+    labelEl.className = 'likert-label';
+    labelEl.textContent = ql[f] || f;
+    row.appendChild(labelEl);
+    d.dist.forEach((n, i) => {
+      const pct = total > 0 ? n/total : 0;
+      const alpha = 0.15 + pct * 0.85;
+      const cell  = document.createElement('div');
+      cell.className = 'lk-cell';
+      cell.title = `${SCALE[i]}: ${n} (${Math.round(pct*100)}%)`;
+      cell.style.background = hexAlpha(COLS[i], alpha);
+      cell.textContent = n > 0 ? n : '';
+      row.appendChild(cell);
+    });
+    grid.appendChild(row);
+  });
+
+  el.appendChild(grid);
+
+  // Mean bar summary
+  const validFields = fields.filter(f => likert[f]);
+  if (validFields.length) {
+    const means = validFields.map(f => parseFloat(likert[f].mean));
+    const overall = (means.reduce((a,b)=>a+b,0)/means.length).toFixed(2);
+    const meanEl = document.createElement('div');
+    meanEl.className = 'lk-mean';
+    meanEl.textContent = `Group average: ${overall} / 5.00`;
+    el.appendChild(meanEl);
+
+    // mini bar chart of means
+    const canvas = document.createElement('canvas');
+    canvas.style.maxHeight = '120px';
+    canvas.style.marginTop = '14px';
+    el.appendChild(canvas);
+    const chartId = 'lk_'+fields[0];
+    destroyChart(chartId);
+    charts[chartId] = new Chart(canvas, {
+      type: 'bar',
+      data: {
+        labels: validFields.map(f => shortLabel(ql[f]||f)),
+        datasets: [{ data: means,
+          backgroundColor: means.map(m => m >= 4 ? '#3dba5e' : m >= 3 ? '#e8c840' : '#e05555'),
+          borderRadius: 4, borderSkipped: false }]
+      },
+      options: {
+        responsive: true,
+        scales: {
+          x: { ticks: { color: '#7ab87a', font: { size: 9 } }, grid: { color: 'rgba(26,77,37,.3)' } },
+          y: { min: 1, max: 5, ticks: { color: '#7ab87a', font: { size: 9 } }, grid: { color: 'rgba(26,77,37,.3)' } }
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: ctx => ` Mean: ${ctx.raw}` } }
+        }
+      }
+    });
+  }
+}
+
+// ── HELPERS ──────────────────────────────────────────────
+function makeCard(parent, title) {
+  const card = document.createElement('div');
+  card.className = 'chart-card';
+  card.innerHTML = `<h4>${escHtml(title||'')}</h4>`;
+  parent.appendChild(card);
+  return card;
+}
+function destroyChart(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
+function wrap(s, n) { return s && s.length > n ? s.slice(0,n)+'…' : s; }
+function shortLabel(s) { return (s||'').replace(/^[A-Z]\d+\.\s*/,'').slice(0,30); }
+function escHtml(s) { return String(s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function hexAlpha(hex, a) {
+  const r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${a.toFixed(2)})`;
+}
+function pct(freqArr, labels) {
+  if (!freqArr || !freqArr.length) return 0;
+  const total = freqArr.reduce((s,f)=>s+f.n,0);
+  const match = freqArr.filter(f => labels.some(l=>f.label.toLowerCase().includes(l.toLowerCase())))
+                        .reduce((s,f)=>s+f.n,0);
+  return total > 0 ? Math.round(match/total*100) : 0;
+}
+function pctExact(freqArr, label) {
+  if (!freqArr || !freqArr.length) return 0;
+  const total = freqArr.reduce((s,f)=>s+f.n,0);
+  const match = (freqArr.find(f=>f.label===label)||{n:0}).n;
+  return total > 0 ? Math.round(match/total*100) : 0;
+}
+function status(msg, cls) {
+  const p = document.getElementById('statusPill');
+  const t = document.getElementById('statusText');
+  p.className = 'pill' + (cls ? ' '+cls : '');
+  t.textContent = msg;
+}
+function spin(on) { document.getElementById('refreshBtn').classList.toggle('spinning',on); }
+function showErr(msg) { const e=document.getElementById('errBanner'); e.textContent=msg; e.style.display='block'; }
+function hideErr() { document.getElementById('errBanner').style.display='none'; }
+
+// ── AUTO LOAD ────────────────────────────────────────────
+loadData();
+setInterval(loadData, 90000);
+</script>
+</body>
+</html>
