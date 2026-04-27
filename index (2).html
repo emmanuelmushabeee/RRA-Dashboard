@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>RRA Audit Survey — Field Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --ink:#0a0e1a;--paper:#f5f3ee;--card:#ffffff;--rule:#e2dfd8;
+  --b1:#1a3a6b;--b2:#2563eb;--b3:#93c5fd;
+  --g1:#064e3b;--g2:#059669;--g3:#6ee7b7;
+  --o1:#92400e;--o2:#d97706;
+  --r1:#7f1d1d;--r2:#dc2626;
+  --p1:#4c1d95;--p2:#7c3aed;
+  --c1:#164e63;--c2:#0891b2;
+  --display:'Bebas Neue',sans-serif;
+  --body:'Outfit',sans-serif;
+  --mono:'JetBrains Mono',monospace;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--body);font-weight:300;min-height:100vh;overflow-x:hidden}
+
+#loader{position:fixed;inset:0;background:var(--ink);z-index:1000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.5rem;transition:opacity 0.6s ease}
+#loader.done{opacity:0;pointer-events:none}
+.ld-eye{font-family:var(--mono);font-size:0.62rem;color:#475569;letter-spacing:0.18em;text-transform:uppercase}
+.ld-title{font-family:var(--display);font-size:3.5rem;color:var(--paper);letter-spacing:0.06em;line-height:1;text-align:center}
+.ld-title em{color:var(--b2);font-style:normal}
+.ld-sub{font-family:var(--mono);font-size:0.62rem;color:#475569;letter-spacing:0.15em;text-transform:uppercase;text-align:center;max-width:260px}
+.ld-track{width:220px;height:2px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden}
+.ld-fill{height:100%;background:var(--b2);width:0%;animation:ldp 3s ease forwards}
+@keyframes ldp{0%{width:0%}60%{width:70%}90%{width:90%}100%{width:100%}}
+
+#err{display:none;margin:2rem 3rem;padding:1.5rem 1.75rem;background:#fff1f2;border-left:4px solid var(--r2);border-radius:0 8px 8px 0;font-family:var(--mono);font-size:0.76rem;color:var(--r1);line-height:1.9}
+#err code{background:#ffe4e6;padding:2px 6px;border-radius:3px;font-size:0.72rem}
+
+header{background:var(--ink);padding:2rem 3rem;display:flex;align-items:flex-start;justify-content:space-between;gap:2rem;flex-wrap:wrap;position:relative;overflow:hidden}
+header::before{content:'';position:absolute;top:-100px;right:-100px;width:350px;height:350px;border-radius:50%;background:radial-gradient(circle,rgba(37,99,235,0.22) 0%,transparent 70%);pointer-events:none}
+.h-eye{font-family:var(--mono);font-size:0.6rem;color:#475569;letter-spacing:0.18em;text-transform:uppercase;margin-bottom:0.6rem}
+.h-title{font-family:var(--display);font-size:clamp(2rem,5vw,3.6rem);color:var(--paper);letter-spacing:0.04em;line-height:0.92}
+.h-title em{color:var(--b2);font-style:normal;display:block}
+.h-desc{margin-top:0.9rem;font-size:0.78rem;color:#64748b;max-width:360px;line-height:1.65}
+.h-right{display:flex;flex-direction:column;align-items:flex-end;gap:0.8rem;position:relative;z-index:1}
+.badge-live{display:flex;align-items:center;gap:0.45rem;background:rgba(5,150,105,0.12);border:1px solid rgba(5,150,105,0.25);padding:0.32rem 0.85rem;border-radius:99px}
+.dot-live{width:6px;height:6px;border-radius:50%;background:var(--g2);animation:blink 1.6s infinite}
+@keyframes blink{0%,100%{opacity:1;box-shadow:0 0 6px var(--g2)}50%{opacity:0.25;box-shadow:none}}
+.badge-live span{font-family:var(--mono);font-size:0.6rem;color:var(--g3);letter-spacing:0.1em;text-transform:uppercase}
+#ts{font-family:var(--mono);font-size:0.6rem;color:#334155;text-align:right;line-height:1.7}
+#refresh-btn{background:transparent;border:1px solid #1e293b;color:#64748b;font-family:var(--mono);font-size:0.6rem;letter-spacing:0.12em;text-transform:uppercase;padding:0.45rem 1.2rem;border-radius:4px;cursor:pointer;transition:all 0.2s}
+#refresh-btn:hover{border-color:var(--b2);color:var(--b3);background:rgba(37,99,235,0.08)}
+
+main{padding:2.5rem 3rem;opacity:0;transform:translateY(10px);transition:opacity 0.5s ease,transform 0.5s ease}
+main.on{opacity:1;transform:none}
+
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:1px;background:var(--rule);border:1px solid var(--rule);border-radius:12px;overflow:hidden;margin-bottom:2.5rem;box-shadow:0 1px 4px rgba(0,0,0,0.04)}
+.kpi{background:var(--card);padding:1.4rem 1.6rem;position:relative;transition:background 0.15s}
+.kpi:hover{background:#fafaf9}
+.kpi-bar{position:absolute;top:0;left:0;right:0;height:3px}
+.kpi-tag{font-family:var(--mono);font-size:0.57rem;color:#94a3b8;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:0.55rem}
+.kpi-val{font-family:var(--display);font-size:2.6rem;line-height:1;letter-spacing:0.02em}
+.kpi-foot{margin-top:0.3rem;font-size:0.68rem;color:#94a3b8}
+
+.g{display:grid;grid-template-columns:repeat(12,1fr);gap:1.25rem}
+.s12{grid-column:span 12}.s6{grid-column:span 6}.s4{grid-column:span 4}.s3{grid-column:span 3}
+@media(max-width:960px){.s6,.s4,.s3{grid-column:span 12}}
+@media(max-width:600px){header,main{padding-left:1.25rem;padding-right:1.25rem}}
+
+.card{background:var(--card);border:1px solid var(--rule);border-radius:10px;overflow:hidden;animation:fup 0.4s ease both;box-shadow:0 1px 3px rgba(0,0,0,0.03)}
+@keyframes fup{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.card-h{padding:0.9rem 1.3rem;border-bottom:1px solid var(--rule);display:flex;align-items:center;justify-content:space-between}
+.card-hl{display:flex;align-items:center;gap:0.55rem}
+.card-n{font-family:var(--mono);font-size:0.57rem;color:#e2e8f0;background:var(--ink);padding:2px 6px;border-radius:3px;letter-spacing:0.04em}
+.card-t{font-size:0.8rem;font-weight:500}
+.card-sub{font-family:var(--mono);font-size:0.63rem;color:#94a3b8}
+.card-b{padding:1.2rem 1.3rem}
+
+.br{margin-bottom:0.9rem}.br:last-child{margin-bottom:0}
+.brt{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:0.38rem}
+.brl{font-size:0.76rem;color:#374151;font-weight:400;line-height:1.3;padding-right:0.5rem}
+.brr{display:flex;align-items:baseline;gap:0.4rem;white-space:nowrap}
+.brn{font-family:var(--mono);font-size:0.76rem;font-weight:500}
+.brp{font-family:var(--mono);font-size:0.62rem;color:#94a3b8}
+.track{height:7px;background:#f1f0ec;border-radius:99px;overflow:hidden}
+.fill{height:100%;border-radius:99px;width:0;transition:width 1s cubic-bezier(0.16,1,0.3,1)}
+
+.tl{display:flex;align-items:flex-end;gap:8px;height:110px;padding-top:0.5rem}
+.tlc{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;height:100%;justify-content:flex-end}
+.tlbw{flex:1;width:100%;display:flex;align-items:flex-end}
+.tlb{width:100%;border-radius:4px 4px 0 0;min-height:3px;background:var(--b2);transition:height 1s cubic-bezier(0.16,1,0.3,1);cursor:pointer;position:relative}
+.tlb:hover{filter:brightness(1.15)}
+.tlb::after{content:attr(data-tip);position:absolute;bottom:calc(100%+6px);left:50%;transform:translateX(-50%);background:var(--ink);color:#f8fafc;font-family:var(--mono);font-size:0.58rem;padding:3px 8px;border-radius:4px;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity 0.15s;z-index:10}
+.tlb:hover::after{opacity:1}
+.tlcnt{font-family:var(--mono);font-size:0.6rem;color:var(--b2);font-weight:500}
+.tldt{font-family:var(--mono);font-size:0.53rem;color:#94a3b8;white-space:nowrap}
+
+.dw{display:flex;align-items:center;gap:1.25rem}
+.dl{flex:1;display:flex;flex-direction:column;gap:0.55rem}
+.dlr{display:flex;align-items:center;gap:0.5rem}
+.dld{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.dll{font-size:0.73rem;color:#374151;flex:1;line-height:1.3}
+.dlv{font-family:var(--mono);font-size:0.7rem;font-weight:500}
+.dlp{font-family:var(--mono);font-size:0.6rem;color:#94a3b8;margin-left:2px}
+
+.empty{padding:2rem;text-align:center;font-family:var(--mono);font-size:0.7rem;color:#cbd5e1;letter-spacing:0.08em}
+
+footer{padding:1.5rem 3rem;border-top:1px solid var(--rule);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem}
+footer span{font-family:var(--mono);font-size:0.6rem;color:#94a3b8;letter-spacing:0.06em}
+</style>
+</head>
+<body>
+
+<div id="loader">
+  <div class="ld-eye">Rwanda Revenue Authority</div>
+  <div class="ld-title">FIELD<br/>SURVEY<br/><em>MONITOR</em></div>
+  <div class="ld-sub">Connecting to live data…</div>
+  <div class="ld-track"><div class="ld-fill"></div></div>
+</div>
+
+<div id="err"></div>
+
+<header>
+  <div>
+    <div class="h-eye">RRA · Tax Audit Survey · Field Dashboard</div>
+    <div class="h-title">AUDIT<br/>SURVEY<br/><em>DASHBOARD</em></div>
+    <div class="h-desc">Optimizing Tax Compliance Through Effective Audits — live field progress across all 10 key variables.</div>
+  </div>
+  <div class="h-right">
+    <div class="badge-live"><div class="dot-live"></div><span>Live Data</span></div>
+    <div id="ts">—</div>
+    <button id="refresh-btn" onclick="loadData()">↺ &nbsp;Refresh</button>
+  </div>
+</header>
+
+<main id="main">
+  <div class="kpis">
+    <div class="kpi"><div class="kpi-bar" style="background:var(--b2)"></div><div class="kpi-tag">Total Submissions</div><div class="kpi-val" id="k0" style="color:var(--b1)">—</div><div class="kpi-foot">firms interviewed</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:var(--g2)"></div><div class="kpi-tag">Enumerators Active</div><div class="kpi-val" id="k1" style="color:var(--g1)">—</div><div class="kpi-foot">field agents</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:var(--o2)"></div><div class="kpi-tag">% Additional Tax</div><div class="kpi-val" id="k2" style="color:var(--o1)">—</div><div class="kpi-foot">assessed · E01</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:var(--p2)"></div><div class="kpi-tag">% Additional Costs</div><div class="kpi-val" id="k3" style="color:var(--p1)">—</div><div class="kpi-foot">incurred · M02</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:var(--r2)"></div><div class="kpi-tag">% Filed Appeal</div><div class="kpi-val" id="k4" style="color:var(--r1)">—</div><div class="kpi-foot">objection · E04</div></div>
+    <div class="kpi"><div class="kpi-bar" style="background:var(--c2)"></div><div class="kpi-tag">Days in Field</div><div class="kpi-val" id="k5" style="color:var(--c1)">—</div><div class="kpi-foot">since day one</div></div>
+  </div>
+
+  <div class="g">
+    <div class="card s12" style="animation-delay:0.04s">
+      <div class="card-h"><div class="card-hl"><span class="card-n">01</span><span class="card-t">Daily Submissions Timeline</span></div><span class="card-sub" id="tl-sub"></span></div>
+      <div class="card-b"><div class="tl" id="tl"></div></div>
+    </div>
+    <div class="card s4" style="animation-delay:0.08s">
+      <div class="card-h"><div class="card-hl"><span class="card-n">02</span><span class="card-t">By Enumerator</span></div></div>
+      <div class="card-b" id="s-enum"></div>
+    </div>
+    <div class="card s4" style="animation-delay:0.12s">
+      <div class="card-h"><div class="card-hl"><span class="card-n">03</span><span class="card-t">Firm Size · Turnover</span></div></div>
+      <div class="card-b" id="s-size"></div>
+    </div>
+    <div class="card s4" style="animation-delay:0.16s">
+      <div class="card-h"><div class="card-hl"><span class="card-n">04</span><span class="card-t">No. of Employees</span></div></div>
+      <div class="card-b" id="s-emp"></div>
+    </div>
+    <div class="card s4" style="animation-delay:0.20s">
+      <div class="card-h"><div class="card-hl"><span class="card-n">05</span><span class="card-t">Times Audited by RRA</span></div></div>
+      <div class="card-b" id="s-times"></div>
+    </div>
+    <div class="card s4" style="animation-delay:0.24s">
+      <div class="card-h"><div class="card-hl"><span class="card-n">06</span><span class="card-t">Most Recent Audit</span></div></div>
+      <div class="card-b" id="s-recent"></div>
+    </div>
+    <div class="card s4" style="animation-delay:0.28s">
+      <div class="card-h"><div class="card-hl"><span class="card-n">07</span><span class="card-t">Audit Type Conducted</span></div></div>
+      <div class="card-b" id="s-type"></div>
+    </div>
+    <div class="card s3" style="animation-delay:0.32s">
+      <div class="card-h"><div class="card-hl"><span class="card-n">08</span><span class="card-t">Additional Tax · E01</span></div></div>
+      <div class="card-b" id="s-tax"></div>
+    </div>
+    <div class="card s6" style="animation-delay:0.36s">
+      <div class="card-h"><div class="card-hl"><span class="card-n">09</span><span class="card-t">How Firm Responded · E04</span></div></div>
+      <div class="card-b" id="s-resp"></div>
+    </div>
+    <div class="card s3" style="animation-delay:0.40s">
+      <div class="card-h"><div class="card-hl"><span class="card-n">10</span><span class="card-t">Additional Costs · M02</span></div></div>
+      <div class="card-b" id="s-cost"></div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <span>RRA · Optimizing Tax Compliance Through Effective Audits</span>
+  <span id="ft">—</span>
+</footer>
+
+<script>
+// ── CONFIG ───────────────────────────────────────────────────
+var GAS_URL = "https://script.google.com/macros/s/AKfycbxk5LSsroYzH17DUd72NnmIqvsrNmaD-TyggCLCyqVCXrGbnbMrKjlD322omTPbBgIsRA/exec";
+
+// AllOrigins proxies the request server-side — no CORS issue
+var PROXY  = "https://api.allorigins.win/get?url=";
+
+var P = {
+  blue:   ["#1e40af","#2563eb","#3b82f6","#60a5fa","#93c5fd"],
+  green:  ["#065f46","#059669","#10b981","#34d399","#6ee7b7"],
+  amber:  ["#78350f","#b45309","#d97706","#f59e0b","#fbbf24"],
+  purple: ["#4c1d95","#6d28d9","#7c3aed","#8b5cf6","#a78bfa"],
+  rose:   ["#881337","#be123c","#e11d48","#f43f5e","#fb7185"],
+  mixed:  ["#2563eb","#059669","#d97706","#7c3aed","#e11d48","#0891b2"],
+  yn:     ["#e11d48","#059669"]
+};
+
+// ── FETCH via AllOrigins proxy ───────────────────────────────
+function loadData() {
+  hideErr();
+  // Show loader if refreshing
+  var main = document.getElementById("main");
+  if (main.classList.contains("on")) {
+    document.getElementById("ts").textContent = "Refreshing…";
+  }
+
+  var url = PROXY + encodeURIComponent(GAS_URL) + "&t=" + Date.now();
+
+  fetch(url)
+    .then(function(r) {
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    })
+    .then(function(wrapper) {
+      // AllOrigins wraps content in { contents: "...", status: {...} }
+      var raw = wrapper.contents;
+      if (!raw) throw new Error("Empty response from proxy");
+      var data = JSON.parse(raw);
+      if (data.error) throw new Error("AppScript: " + data.error);
+      render(data);
+      // Hide loader
+      var l = document.getElementById("loader");
+      l.classList.add("done");
+      setTimeout(function(){ l.style.display="none"; }, 650);
+      main.classList.add("on");
+      var now = fmt(new Date());
+      document.getElementById("ts").innerHTML = "Updated<br>" + now;
+      document.getElementById("ft").textContent = "Last refresh: " + now;
+    })
+    .catch(function(err) {
+      document.getElementById("loader").style.display = "none";
+      showErr(
+        "❌ <b>Could not load data.</b> Error: <code>" + err.message + "</code><br><br>" +
+        "<b>Most likely causes:</b><br>" +
+        "① AppScript not deployed — go to <b>Deploy → New Deployment → Web App → Anyone → Deploy</b><br>" +
+        "② Wrong sheet name — your sheet tab must be named <b>DATA</b> exactly<br>" +
+        "③ Proxy temporarily down — wait 30 seconds and click Refresh<br><br>" +
+        "<b>Verify AppScript works</b> by opening this in your browser:<br>" +
+        "<code>" + GAS_URL + "</code><br>" +
+        "You should see a JSON block starting with <code>{\"meta\":</code>"
+      );
+    });
+}
+
+function showErr(msg) {
+  var e = document.getElementById("err");
+  e.style.display = "block";
+  e.innerHTML = msg;
+}
+function hideErr() {
+  document.getElementById("err").style.display = "none";
+}
+
+// ── RENDER ───────────────────────────────────────────────────
+function render(d) {
+  var T = d.meta.total;
+  setText("k0", T);
+  setText("k5", d.meta.days_in_field);
+  setText("k1", clean(d.by_enumerator).length);
+
+  var taxY=v(d.by_additional_tax,"Yes"),  taxT=tot(d.by_additional_tax);
+  var cstY=v(d.by_additional_cost,"Yes"), cstT=tot(d.by_additional_cost);
+  var apY=v(d.by_how_responded,"Filed objection/appeal"), apT=tot(d.by_how_responded);
+
+  setText("k2", taxT ? pct(taxY,taxT) : "—");
+  setText("k3", cstT ? pct(cstY,cstT) : "—");
+  setText("k4", apT  ? pct(apY,apT)   : "—");
+
+  timeline(d.by_date||{}, T);
+  donut("s-enum",  d.by_enumerator,     P.blue);
+  bars ("s-size",  d.by_size,           P.blue);
+  bars ("s-emp",   d.by_employees,      P.green);
+  bars ("s-times", d.by_times_audited,  P.amber);
+  bars ("s-recent",d.by_recent_audit,   P.rose);
+  bars ("s-type",  d.by_audit_type,     P.purple);
+  donut("s-tax",   d.by_additional_tax, P.yn);
+  bars ("s-resp",  d.by_how_responded,  P.mixed);
+  donut("s-cost",  d.by_additional_cost,P.yn);
+}
+
+// ── TIMELINE ─────────────────────────────────────────────────
+function timeline(byDate, total) {
+  var el = document.getElementById("tl");
+  var entries = Object.entries(byDate).sort(function(a,b){return a[0]<b[0]?-1:1;});
+  if (!entries.length) { el.innerHTML='<div class="empty">No date data yet</div>'; return; }
+  var mx = Math.max.apply(null, entries.map(function(e){return e[1];}));
+  document.getElementById("tl-sub").textContent = total + " total";
+  el.innerHTML = entries.map(function(e){
+    var date=e[0], n=e[1];
+    var h = mx>0 ? Math.max(4, Math.round((n/mx)*100)) : 4;
+    var lbl = date.length>=10 ? date.slice(5).replace("-","/") : date;
+    return '<div class="tlc">'+
+      '<span class="tlcnt">'+n+'</span>'+
+      '<div class="tlbw"><div class="tlb" style="height:'+h+'%" data-tip="'+date+' · '+n+'"></div></div>'+
+      '<span class="tldt">'+lbl+'</span>'+
+    '</div>';
+  }).join("");
+}
+
+// ── BAR CHART ─────────────────────────────────────────────────
+function bars(id, obj, pal) {
+  var el = document.getElementById(id);
+  var entries = clean(obj);
+  if (!entries.length) { el.innerHTML='<div class="empty">No data yet</div>'; return; }
+  var t = entries.reduce(function(s,e){return s+e[1];},0);
+  el.innerHTML = entries.map(function(e,i){
+    var p = t ? Math.round(e[1]/t*100) : 0;
+    return '<div class="br">'+
+      '<div class="brt">'+
+        '<span class="brl">'+e[0]+'</span>'+
+        '<div class="brr"><span class="brn">'+e[1]+'</span><span class="brp">'+p+'%</span></div>'+
+      '</div>'+
+      '<div class="track"><div class="fill" style="background:'+pal[i%pal.length]+'" data-w="'+p+'"></div></div>'+
+    '</div>';
+  }).join("");
+  requestAnimationFrame(function(){
+    el.querySelectorAll(".fill").forEach(function(f){ f.style.width=f.dataset.w+"%"; });
+  });
+}
+
+// ── DONUT ─────────────────────────────────────────────────────
+function donut(id, obj, pal) {
+  var el = document.getElementById(id);
+  var entries = clean(obj);
+  if (!entries.length) { el.innerHTML='<div class="empty">No data yet</div>'; return; }
+  var t = entries.reduce(function(s,e){return s+e[1];},0);
+  var R=46,cx=52,cy=52,C=2*Math.PI*R,off=0;
+  var slices = entries.map(function(e,i){
+    var dash=(e[1]/t)*C, gap=C-dash;
+    var s='<circle cx="'+cx+'" cy="'+cy+'" r="'+R+'" fill="none" stroke="'+pal[i%pal.length]+'" stroke-width="13"'+
+      ' stroke-dasharray="'+dash.toFixed(2)+' '+gap.toFixed(2)+'"'+
+      ' stroke-dashoffset="'+(-(off)).toFixed(2)+'"'+
+      ' transform="rotate(-90 '+cx+' '+cy+')"'+
+      ' style="transition:stroke-dasharray 1s ease"/>';
+    off+=dash; return s;
+  }).join("");
+  var legend = entries.map(function(e,i){
+    var p=Math.round(e[1]/t*100);
+    return '<div class="dlr">'+
+      '<div class="dld" style="background:'+pal[i%pal.length]+'"></div>'+
+      '<span class="dll">'+e[0]+'</span>'+
+      '<span class="dlv">'+e[1]+'</span>'+
+      '<span class="dlp">'+p+'%</span>'+
+    '</div>';
+  }).join("");
+  el.innerHTML='<div class="dw">'+
+    '<svg width="104" height="104" viewBox="0 0 104 104">'+
+      '<circle cx="52" cy="52" r="46" fill="none" stroke="#f1f0ec" stroke-width="13"/>'+
+      slices+
+      '<text x="52" y="48" text-anchor="middle" font-family="Bebas Neue,sans-serif" font-size="20" fill="#1a3a6b">'+t+'</text>'+
+      '<text x="52" y="62" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="7" fill="#94a3b8" letter-spacing="0.08em">TOTAL</text>'+
+    '</svg>'+
+    '<div class="dl">'+legend+'</div>'+
+  '</div>';
+}
+
+// ── UTILS ─────────────────────────────────────────────────────
+function setText(id,val){ document.getElementById(id).textContent=val; }
+function pct(n,t){ return Math.round(n/t*100)+"%"; }
+function tot(o){ return o?Object.values(o).reduce(function(a,b){return a+b;},0):0; }
+function v(o,k){ return o?(o[k]||0):0; }
+function clean(o){
+  if(!o) return [];
+  return Object.entries(o)
+    .filter(function(e){var k=e[0];return k&&k!=="null"&&k!=="undefined"&&k!=="(not answered)";})
+    .sort(function(a,b){return b[1]-a[1];});
+}
+function fmt(d){
+  return d.toLocaleString("en-GB",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"});
+}
+
+loadData();
+</script>
+</body>
+</html>
